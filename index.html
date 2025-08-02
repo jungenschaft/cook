@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280, height=800" />
+  <title>RTSP Kiosk Viewer</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 1280px;
+      height: 800px;
+      background: black;
+      overflow: hidden;
+      font-family: sans-serif;
+      color: white;
+    }
+    #video-stream { width: 100%; height: 60%; object-fit: contain; background: #000; }
+    #info { text-align: center; padding: 10px; }
+    #last-image { max-width: 100%; height: auto; }
+    #usb-bars { text-align: center; margin-top: 10px; }
+    .usb-status { display: inline-block; margin: 0 10px; }
+    .bar { width: 50px; height: 100px; background: gray; position: relative; }
+    .bar-fill { position: absolute; bottom: 0; width: 100%; background: green; }
+    #overlay-blocker { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9; }
+    #password-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #111; padding: 20px; display: none; z-index: 10; color: white;
+    }
+    #footer { position: fixed; bottom: 0; width: 100%; text-align: center;
+      padding: 8px; background: #222;
+    }
+    #footer img { height: 24px; vertical-align: middle; }
+    #footer small { display: block; color: #aaa; margin-top: 4px; font-size: 0.8em; }
+  </style>
+</head>
+<body>
+  <div id="overlay-blocker"></div>
+  <video id="video-stream" autoplay muted playsinline></video>
+
+  <div id="info">
+    <h2 id="timestamp">Last Photo: --</h2>
+    <img id="last-image" src="/last.jpg" alt="Last snapshot">
+    <p>Next photo in <span id="countdown">120</span> seconds</p>
+    <div id="usb-bars">
+      <div class="usb-status"><div class="bar"><div class="bar-fill" id="usb1"></div></div>USB 1</div>
+      <div class="usb-status"><div class="bar"><div class="bar-fill" id="usb2"></div></div>USB 2</div>
+      <div class="usb-status"><div class="bar"><div class="bar-fill" id="usb3"></div></div>USB 3</div>
+      <div class="usb-status"><div class="bar"><div class="bar-fill" id="usb4"></div></div>USB 4</div>
+    </div>
+  </div>
+
+  <div id="footer">
+    <img src="/gthn.svg" alt="GTHN Logo"> RTSP Kiosk System
+    <small>
+      Copyright GTHN.ORG 2025, All rights reserved. - 
+      In Deutschland werden GTHN.ORG, KnowJes.us und CVJM.INFO vertreten durch:
+      BaeurleEngst.com, Vertreten durch: Lukas Bäurle, Ladungsfähige Adresse:
+      Josef-Probst-Weg 10, 88400 Biberach
+    </small>
+  </div>
+
+  <div id="password-modal">
+    <p>Enter password to exit</p>
+    <input type="password" id="password-input">
+    <button onclick="checkPassword()">Unlock</button>
+  </div>
+
+  <script>
+    // Enter fullscreen on load
+    window.onload = () => document.documentElement.requestFullscreen();
+
+    // Block all input events
+    ['keydown','keyup','keypress'].forEach(evt =>
+      document.addEventListener(evt, e => e.preventDefault(), true)
+    );
+    const blocker = document.getElementById('overlay-blocker');
+    blocker.addEventListener('click', e => e.stopPropagation());
+    blocker.addEventListener('touchstart', e => e.stopPropagation());
+
+    let countdown = 120;
+    setInterval(() => {
+      countdown--;
+      if (countdown <= 0) fetch('/capture').then(() => countdown = 120);
+      document.getElementById('countdown').innerText = countdown;
+    }, 1000);
+
+    function updateUI() {
+      fetch('/status').then(res => res.json()).then(data => {
+        document.getElementById('timestamp').innerText = 'Last Photo: ' + data.timestamp;
+        document.getElementById('last-image').src = data.image_url + '?t=' + Date.now();
+        data.usb.forEach((pct, i) => {
+          document.getElementById(`usb${i+1}`).style.height = pct + '%';
+        });
+      });
+    }
+    setInterval(updateUI, 5000);
+
+    // Win+C to trigger exit modal
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() === 'c' && e.metaKey) {
+        document.getElementById('password-modal').style.display = 'block';
+      }
+    });
+
+    function checkPassword() {
+      if (document.getElementById('password-input').value === 'Feldb3tt') fetch('/shutdown');
+    }
+  </script>
+</body>
+</html>
